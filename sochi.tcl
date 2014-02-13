@@ -32,7 +32,7 @@ if {[channel get $channel sochiih] && [onchan $nick $channel] && [string tolower
 
 proc pub:updategame {minute hour day month year} {
 #	putlog "updategame"
- pub:sochiIH nick mask hand #fapahtaja timer;
+ pub:sochiIH nick mask hand [lindex [channels] 0] timer;
 }
 
 proc pub:toggleresults {nick mask hand channel arguments} {
