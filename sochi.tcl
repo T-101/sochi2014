@@ -1,8 +1,8 @@
 #### SOCHI 2014 Hockeygame flooder
 ####
-#### V0.1  - first release
+#### V0.10 - first release
 #### V0.11 - typo fixes
-
+#### V0.20 - better json code - thanks to ente
 setudef flag sochiih
 
 bind pub - !now pub:sochiIH
@@ -13,6 +13,7 @@ package require http
 package require json
 
 set gamecode IHM400B01
+# set gamecode IHW400A05
 
 set lastmessage ""
 
@@ -23,7 +24,7 @@ if {[channel get $channel sochiih] && [onchan $nick $channel] && [string tolower
 } }
 
 proc pub:updategame {minute hour day month year} {
-pub:sochiIH nick mask hand channel timer;
+pub:sochiIH nick mask hand #fapahtaja timer;
 }
 
 proc pub:sochiIH {nick mask hand channel arguments} {
@@ -56,22 +57,18 @@ global gamecode lastmessage
     http::cleanup $token
     if { [info exists data] } {
 	set jsondata [json::json2dict $data]
-	set teams [lindex $jsondata 1]-[lindex $jsondata 3]
-	set score [lindex [lindex $jsondata 5] 1]-[lindex [lindex $jsondata 5] 3]
+	set teams [dict get $jsondata homeCode]-[dict get $jsondata awayCode]
+	if {[dict exists $jsondata game]} {set score [dict get $jsondata game homeScore]-[dict get $jsondata game awayScore]}
+	if {[dict exists $jsondata actions] && [dict get $jsondata actions] != ""} {
+		set lastaction [lindex [dict get $jsondata actions] 0]
+		set time [dict get [lindex [dict get $jsondata actions] 0] time]
+		set type [dict get [lindex [dict get $jsondata actions] 0] type]
+		set nationality [dict get [lindex [dict get $jsondata actions] 0] competitorCode]
+		set player [dict get [lindex [dict get $jsondata actions] 0] athlete shortName]
+		set playernumber "#[dict get [lindex [dict get $jsondata actions] 0] athleteNumber]"
+	}
 	set actions [lsearch $jsondata "actions"]
 	set lastaction [lindex [lindex $jsondata [expr $actions + 1]] 0]
-	set timeindex [lsearch $lastaction "time"]
-	set time [lindex $lastaction [expr $timeindex +1]]
-	set typeindex [lsearch $lastaction "type"]
-	set type [lindex $lastaction [expr $typeindex +1]]
-	set nationalityindex [lsearch $lastaction "competitorCode"]
-	set nationality [lindex $lastaction [expr $nationalityindex +1]]
-	set athleteindex [lsearch $lastaction "athlete"]
-	set athlete [lindex $lastaction [expr $athleteindex +1]]
-	set playerindex [lsearch $athlete "shortName"]
-	set player [lindex $athlete [expr $playerindex +1]]
-	set playernumberindex [lsearch $lastaction "athleteNumber"]
-	set playernumber [lindex $lastaction [expr $playernumberindex +1]]
 	set assistindex [lsearch $lastaction "participants"]
 	set assist1index [lindex $lastaction [expr $assistindex +1]]
 	set assist1 [lindex [lindex [lindex $assist1index 1] 1] 1]
@@ -82,7 +79,7 @@ global gamecode lastmessage
 	
 
 # has the game started?
-	if {[lindex [lindex $jsondata 5] 1] == "" && $arguments != "timer"} {
+	if {![dict exists $jsondata game] && $arguments != "timer"} {
 		set startingtimeindex [lsearch $jsondata "eventUnit"]
 		set startingtime [lindex [lindex $jsondata [expr $startingtimeindex +1]] 7]
 		set starttime [split $startingtime "T"]
@@ -95,7 +92,7 @@ global gamecode lastmessage
 	}
 
 # it has? cool!
-	set message "$teams $score $time, [string map $types $type] $nationality $player $assist1 $assist2"
+	set message "$teams $score $time, [string map $types $type] $nationality $playernumber $player $assist1 $assist2"
 	if {$message != $lastmessage && [lindex [lindex $jsondata 5] 1] != ""} {
 		foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }
 	set lastmessage $message
