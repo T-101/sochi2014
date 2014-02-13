@@ -6,6 +6,7 @@
 #### V0.30 - fixed massive bugs, added penalties
 #### V0.31 - added assists, fixed times
 #### V0.32 - added endgame stats, and upcoming gamecodes
+#### V0.33 - fixed some buggage
 
 setudef flag sochiih
 
@@ -21,7 +22,6 @@ set gamecode IHM400B02
 
 #### UPCOMING GAMES, times in UTC
 ####
-#### IHM400B02 CAN-NOR 17:00
 #### 14.2
 #### IHM400C03 CZE-LAT 08:00
 #### IHM400C04 SWE-SUI 12:30
@@ -50,7 +50,7 @@ if {[channel get $channel sochiih] && [onchan $nick $channel] && [string tolower
 
 proc pub:updategame {minute hour day month year} {
 #	putlog "updategame"
- pub:sochiIH nick mask hand [lindex [channels] 0] timer;
+ pub:sochiIH nick mask hand #fapahtaja timer;
 }
 
 proc pub:toggleresults {nick mask hand channel arguments} {
@@ -71,10 +71,8 @@ if {[string index $value 0] == "0"} {return [expr [string replace $value 0 0]]} 
 }
 
 proc pub:sochiIH {nick mask hand channel arguments} {
-#	putlog "prechannel check"
-if {[channel get $channel sochiih]} {
-	
-set types { "GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "Goal" "TP" "Team Penalty" "TMO" "Timeout"
+
+set types { "GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout"
 						"HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HOLD" "Holding" }
 
 set addendum ""
@@ -84,6 +82,7 @@ set type ""
 set player ""
 set playernumber ""
 set nationality ""
+set goaltype ""
 
 global gamecode lastmessage
 
@@ -108,6 +107,12 @@ global gamecode lastmessage
     http::cleanup $token
     if { [info exists data] } {
 	set jsondata [json::json2dict $data]
+	if {[dict get $jsondata resultStatus] == "INTERMEDIATE"} {
+			set message "Intermission"
+			if {$message != $lastmessage} {foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }}
+			set lastmessage $message
+			return
+	}
 	set teams [dict get $jsondata homeCode]-[dict get $jsondata awayCode]
 	if {[dict exists $jsondata game]} {set score [dict get $jsondata game homeScore]-[dict get $jsondata game awayScore]}
 	if {[dict exists $jsondata actions] && [dict get $jsondata actions] != ""} {
@@ -118,7 +123,7 @@ global gamecode lastmessage
 		set nationality [dict get $lastaction competitorCode]
 		if {[dict exists $lastaction athlete]} {set player [dict get $lastaction athlete shortName]}
 		if {[dict exists $lastaction athleteNumber]} {set playernumber "#[dict get $lastaction athleteNumber]"}
-		if {$type == "P"} {
+		if {$type == "P" || $type == "TP"} {
 			if {[dict exists $lastaction athlete]} {set player [dict get $lastaction athlete shortName]} else {set player [dict get $lastaction athleteServing shortName]}
 			if {[dict exists $lastaction athleteNumber]} {set playernumber "#[dict get $lastaction athleteNumber]"} else {set playernumber "#[dict get $lastaction athleteServingNumber]"}
 			set penalty [dict get $lastaction penaltyDesc]
@@ -126,11 +131,12 @@ global gamecode lastmessage
 			set addendum "([string map $types $penalty] ${penaltymin}min)"
 		}
 	if {$type == "G"} {
+		if {[dict get $lastaction goalType] != "EQ" && [dict get $lastaction goalType] != "EQ_EA"} {set goaltype " ([dict get $lastaction goalType])"}
 		set participants [dict get $lastaction participants]
 		foreach item $participants {
 			if {[dict get $item role] != "SCR"} { set addendum "$addendum [dict get $item athlete shortName]," }
 		}
-		set addendum "([string range [string trim $addendum] 0 end-1])"
+	if {[string length $addendum] != 0} {set addendum "([string range [string trim $addendum] 0 end-1])"}
 		}
 }
 
@@ -138,22 +144,22 @@ global gamecode lastmessage
 	if {![dict exists $jsondata game] && $arguments != "timer"} {
 		set starttime [split [dict get $jsondata eventUnit start] "T"]
 		set utchour [lindex [split [lindex $starttime 1] ":"] 0]
-		set message "$teams will start at $utchour UTC"
-		set message "$teams will start [lindex $starttime 0], at [expr $utchour +2]:[lrange [split [lindex $starttime 1] ":"] 1 1] finnish time"
+		set message "$teams will start at [dlz $utchour] UTC"
+		set message "$teams will start [lindex $starttime 0], at [expr [dlz $utchour] +2]:[lrange [split [lindex $starttime 1] ":"] 1 1] finnish time"
 		foreach item [channels] {
-			if {[channel get $item sochiih]} {putquick "NOTICE $channel :$message" } }
+			if {[channel get $item sochiih] && $item == $channel} {putquick "NOTICE $item :$message" } }
 		set lastmessage $message
 		return 0
 	}
 
 # it has? cool!
-	set message "$teams $score $time, [string map $types $type] $nationality $playernumber $player $addendum"
-	if {$message != $lastmessage && [lindex [lindex $jsondata 5] 1] != ""} {
+	set message "$teams $score $time, [string map $types $type]$goaltype $nationality $playernumber $player $addendum"
+	if {$message != $lastmessage && [dict get $jsondata periods] != "" && $arguments != "timer"} {
 		foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }
 	set lastmessage $message
-        return $data
+#        return $data
     } else {
-        return 0
+#        return 0
     }
     
 # has the game ended?
@@ -162,13 +168,13 @@ global gamecode lastmessage
 			set awaySOG [dict get $jsondata game awaySOG]
 			set homePIM [dict get $jsondata game homePIM]
 			set awayPIM [dict get $jsondata game awayPIM]
-			foreach item [channels] {
-				if {[channel get $item sochiih]} {
-					putquick "PRIVMSG $item :Final score $teams $score. Shots on goal: [dict get $jsondata homeCode] ${homeSOG}, [dict get $jsondata awayCode] $awaySOG"
-					putquick "PRIVMSG $item :Penalties in minutes: [dict get $jsondata homeCode] ${homePIM}, [dict get $jsondata awayCode] $awayPIM"
+			set message "Final score $teams $score. Shots on goal: [dict get $jsondata homeCode] ${homeSOG}, [dict get $jsondata awayCode] $awaySOG. Penalties in minutes: [dict get $jsondata homeCode] ${homePIM}, [dict get $jsondata awayCode] $awayPIM"
+			if {$message != $lastmessage} {
+			foreach item [channels] { if {[channel get $item sochiih]} {
+					putquick "NOTICE $item :$message"
+					set lastmessage $message
 				}
-			}
-}
+			} }
 }
 } }
 
