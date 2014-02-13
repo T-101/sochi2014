@@ -1,10 +1,11 @@
-#### SOCHI 2014 Hockeygame flooder
+#### SOCHI 2014 Hockeygame IRC flooder
 ####
 #### V0.10 - first release - thanks to truck for api link
 #### V0.11 - typo fixes
 #### V0.20 - better json code - thanks to ente
 #### V0.30 - fixed massive bugs, added penalties
 #### V0.31 - added assists, fixed times
+#### V0.32 - added endgame stats, and upcoming gamecodes
 
 setudef flag sochiih
 
@@ -17,7 +18,24 @@ package require http
 package require json
 
 set gamecode IHM400B02
-# set gamecode IHW400A05
+
+#### UPCOMING GAMES, times in UTC
+####
+#### IHM400B02 CAN-NOR 17:00
+#### 14.2
+#### IHM400C03 CZE-LAT 08:00
+#### IHM400C04 SWE-SUI 12:30
+#### IHM400B04 NOR-FIN 17:00
+#### 15.2
+#### IHM400A03 SVK-SLO 08:00
+#### IHM400A04 USA-RUS 12:30
+#### IHM400C05 SUI-CZE 17:00
+#### IHM400C06 SWE-LAT 17:00
+#### 16.2
+#### IHM400B05 AUT-NOR 08:00
+#### IHM400A05 RUS-SVK 12:30
+#### IHM400A06 SLO-USA 12:30
+#### IHM400B06 FIN-CAN 17:00
 
 set admin "T-101"
 
@@ -44,6 +62,7 @@ if {[string tolower $nick] == [string tolower $admin]} {
 	} else {
 		channel set $channel +sochiih
 		putquick "PRIVMSG $channel :Sochi Icehockey enabled"
+		pub:sochiIH $nick $mask $hand $channel $arguments
 	}
 } }
 
@@ -117,13 +136,12 @@ global gamecode lastmessage
 
 # has the game started?
 	if {![dict exists $jsondata game] && $arguments != "timer"} {
-		set startingtime [dict get $jsondata eventUnit start]
-				set starttime [split $startingtime "T"]
-		set utctime [lindex [split [lindex $starttime 1] ":"] 0]
-		set message "$teams will start at $utctime UTC"
-		set message "$teams will start at [expr $utctime +2] finnish time"
+		set starttime [split [dict get $jsondata eventUnit start] "T"]
+		set utchour [lindex [split [lindex $starttime 1] ":"] 0]
+		set message "$teams will start at $utchour UTC"
+		set message "$teams will start [lindex $starttime 0], at [expr $utchour +2]:[lrange [split [lindex $starttime 1] ":"] 1 1] finnish time"
 		foreach item [channels] {
-			if {[channel get $item sochiih]} {putquick "NOTICE $item :$message" } }
+			if {[channel get $item sochiih]} {putquick "NOTICE $channel :$message" } }
 		set lastmessage $message
 		return 0
 	}
@@ -137,8 +155,21 @@ global gamecode lastmessage
     } else {
         return 0
     }
+    
+# has the game ended?
+	if {$type == "GK_OUT" && $time == "60:00"} {
+			set homeSOG [dict get $jsondata game homeSOG]
+			set awaySOG [dict get $jsondata game awaySOG]
+			set homePIM [dict get $jsondata game homePIM]
+			set awayPIM [dict get $jsondata game awayPIM]
+			foreach item [channels] {
+				if {[channel get $item sochiih]} {
+					putquick "PRIVMSG $item :Final score $teams $score. Shots on goal: [dict get $jsondata homeCode] ${homeSOG}, [dict get $jsondata awayCode] $awaySOG"
+					putquick "PRIVMSG $item :Penalties in minutes: [dict get $jsondata homeCode] ${homePIM}, [dict get $jsondata awayCode] $awayPIM"
+				}
+			}
 }
-
+}
 } }
 
 putlog "SOCHI 2014 Olympic IceHockey script by T-101 loaded"
