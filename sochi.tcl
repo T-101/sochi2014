@@ -7,25 +7,23 @@
 #### V0.31 - added assists, fixed times
 #### V0.32 - added endgame stats, and upcoming gamecodes
 #### V0.33 - fixed some buggage
+#### V0.34 - fixed more buggage
 
 setudef flag sochiih
 
 bind pub - !now pub:sochiIH
 bind pub - !changegame pub:changegame
 bind pub - !toggle pub:toggleresults
-bind time - * pub:updategame
+# bind time - * pub:updategame
+bind cron - "* 10-23 * * *" pub:updategame
 
 package require http
 package require json
 
-set gamecode IHM400B02
+set gamecode IHM400A03
 
 #### UPCOMING GAMES, times in UTC
 ####
-#### 14.2
-#### IHM400C03 CZE-LAT 08:00
-#### IHM400C04 SWE-SUI 12:30
-#### IHM400B04 NOR-FIN 17:00
 #### 15.2
 #### IHM400A03 SVK-SLO 08:00
 #### IHM400A04 USA-RUS 12:30
@@ -50,7 +48,7 @@ if {[channel get $channel sochiih] && [onchan $nick $channel] && [string tolower
 
 proc pub:updategame {minute hour day month year} {
 #	putlog "updategame"
- pub:sochiIH nick mask hand #fapahtaja timer;
+ pub:sochiIH nick mask hand channel timer;
 }
 
 proc pub:toggleresults {nick mask hand channel arguments} {
@@ -73,7 +71,7 @@ if {[string index $value 0] == "0"} {return [expr [string replace $value 0 0]]} 
 proc pub:sochiIH {nick mask hand channel arguments} {
 
 set types { "GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout"
-						"HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HOLD" "Holding" }
+						"HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HOLD" "Holding" "HI_ST" "High stick"}
 
 set addendum ""
 set score ""
@@ -107,12 +105,7 @@ global gamecode lastmessage
     http::cleanup $token
     if { [info exists data] } {
 	set jsondata [json::json2dict $data]
-	if {[dict get $jsondata resultStatus] == "INTERMEDIATE"} {
-			set message "Intermission"
-			if {$message != $lastmessage} {foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }}
-			set lastmessage $message
-			return
-	}
+
 	set teams [dict get $jsondata homeCode]-[dict get $jsondata awayCode]
 	if {[dict exists $jsondata game]} {set score [dict get $jsondata game homeScore]-[dict get $jsondata game awayScore]}
 	if {[dict exists $jsondata actions] && [dict get $jsondata actions] != ""} {
@@ -141,24 +134,25 @@ global gamecode lastmessage
 }
 
 # has the game started?
-	if {![dict exists $jsondata game] && $arguments != "timer"} {
+	if {![dict exists $jsondata game] && $arguments != "timer" && $time != "60:00"} {
 		set starttime [split [dict get $jsondata eventUnit start] "T"]
 		set utchour [lindex [split [lindex $starttime 1] ":"] 0]
 		set message "$teams will start at [dlz $utchour] UTC"
 		set message "$teams will start [lindex $starttime 0], at [expr [dlz $utchour] +2]:[lrange [split [lindex $starttime 1] ":"] 1 1] finnish time"
 		foreach item [channels] {
-			if {[channel get $item sochiih] && $item == $channel} {putquick "NOTICE $item :$message" } }
+			if {[channel get $item sochiih] && $item == $item} {putquick "NOTICE $item :$message" } }
 		set lastmessage $message
 		return 0
 	}
 
 # it has? cool!
 	set message "$teams $score $time, [string map $types $type]$goaltype $nationality $playernumber $player $addendum"
-	if {$message != $lastmessage && [dict get $jsondata periods] != "" && $arguments != "timer"} {
+	if {$message != $lastmessage && [dict get $jsondata periods] != "" && $arguments == "timer"} {
 		foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }
 	set lastmessage $message
 #        return $data
     } else {
+#    			putlog "en päivittäny koska $message - $lastmessage"
 #        return 0
     }
     
