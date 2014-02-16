@@ -20,15 +20,10 @@ bind cron - "* 10-23 * * *" pub:updategame
 package require http
 package require json
 
-set gamecode IHM400A03
+set gamecode IHM400A05
 
 #### UPCOMING GAMES, times in UTC
 ####
-#### 15.2
-#### IHM400A03 SVK-SLO 08:00
-#### IHM400A04 USA-RUS 12:30
-#### IHM400C05 SUI-CZE 17:00
-#### IHM400C06 SWE-LAT 17:00
 #### 16.2
 #### IHM400B05 AUT-NOR 08:00
 #### IHM400A05 RUS-SVK 12:30
@@ -70,8 +65,9 @@ if {[string index $value 0] == "0"} {return [expr [string replace $value 0 0]]} 
 
 proc pub:sochiIH {nick mask hand channel arguments} {
 
-set types { "GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout"
-						"HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HOLD" "Holding" "HI_ST" "High stick"}
+set types { 	"GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout" 
+		"HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HOLD" "Holding" "HI_ST" "High stick" "CROSS" "Cross-checking" "DELAY" "Delaying the game" "HAND_Penalty" "Closing hand on puck" "KNEE" "Kneeing" "SLASH" "Slashing"
+		"PP1" "Powerplay" "PP2" "Powerplay 2"}
 
 set addendum ""
 set score ""
@@ -134,7 +130,7 @@ global gamecode lastmessage
 }
 
 # has the game started?
-	if {![dict exists $jsondata game] && $arguments != "timer" && $time != "60:00"} {
+	if {![dict exists $jsondata game] && $arguments != "timer"} {
 		set starttime [split [dict get $jsondata eventUnit start] "T"]
 		set utchour [lindex [split [lindex $starttime 1] ":"] 0]
 		set message "$teams will start at [dlz $utchour] UTC"
@@ -147,7 +143,7 @@ global gamecode lastmessage
 
 # it has? cool!
 	set message "$teams $score $time, [string map $types $type]$goaltype $nationality $playernumber $player $addendum"
-	if {$message != $lastmessage && [dict get $jsondata periods] != "" && $arguments == "timer"} {
+	if {$message != $lastmessage && [dict get $jsondata periods] != "" && $arguments == "timer" && $time != "60:00"} {
 		foreach item [channels] { if {[channel get $item sochiih]} {putquick "NOTICE $item :${message}"} }
 	set lastmessage $message
 #        return $data
