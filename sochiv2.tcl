@@ -5,7 +5,8 @@ bind cron - "* 10-23 * * *" sochiExecute
 package require json
 package require http
 
-set games { IHM400402 IHM400404 IHM400403 IHM400301 IHM400302 IHM400303 IHM400304 IHM400201 IHM400202 IHM400102 IHM400101 }
+set games { IHM400404 IHM400301 IHM400302 IHM400303 IHM400304 IHM400201 IHM400202 IHM400102 IHM400101 }
+set games {IHM400404 }
 set homescore 0
 set awayscore 0
 set gamedata ""
@@ -14,7 +15,7 @@ set lastmessage ""
 
 set types {     "PP1" "Powerplay" "PP2" "Powerplay 2" "SH1" "Shorthanded" "SH2" "Shorthanded 2" "ENG" "Empty net" "GWG" "Game winning goal"
 		"GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout"
-                "HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference"
+                "HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HO_ST" "Holding the stick"
                 "HOLD" "Holding" "HI_ST" "High stick" "CROSS" "Cross-checking" "DELAY" "Delaying the game" "HAND_Penalty" "Closing hand on puck" "KNEE" "Kneeing" "SLASH" "Slashing"
                 }
 
@@ -55,8 +56,11 @@ proc pub:sochiToggle {nick mask hand channel arguments} {
 }
 
 proc sochiInit {} {
-global cache games
+global gamedata cache games homescore awayscore
 file mkdir $cache
+
+if {[dict exists $gamedata game homeScore]} {set homescore [dict get $gamedata game homeScore]} else {set homeScore 0}
+if {[dict exists $gamedata game awayScore]} {set awayscore [dict get $gamedata game awayScore]} else {set awayScore 0}
 
 if {![file exists "$cache\/[lindex $games 0]"]} {
     set fileindex [open "$cache\/[lindex $games 0]" w]
@@ -143,6 +147,7 @@ close $fileindex
 proc pub:sochiEndgame {} {
 global games gamedata lastmessage
 set teams "[dict get $gamedata homeCode]-[dict get $gamedata awayCode]"
+
 set homeSOG [dict get $gamedata game homeSOG]
 set awaySOG [dict get $gamedata game awaySOG]
 set homePIM [dict get $gamedata game homePIM]
