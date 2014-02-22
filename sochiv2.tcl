@@ -5,18 +5,17 @@ bind cron - "* 10-23 * * *" sochiExecute
 package require json
 package require http
 
-set games { IHM400404 IHM400301 IHM400302 IHM400303 IHM400304 IHM400201 IHM400202 IHM400102 IHM400101 }
-set games {IHM400404 }
+set games { IHM400102 IHM400101 }
 set homescore 0
 set awayscore 0
 set gamedata ""
 set cache "sochi2014_cache"
 set lastmessage ""
 
-set types {     "PP1" "Powerplay" "PP2" "Powerplay 2" "SH1" "Shorthanded" "SH2" "Shorthanded 2" "ENG" "Empty net" "GWG" "Game winning goal"
-		"GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout"
+set types {     "PP1" "Powerplay" "PP2" "Powerplay 2" "SH1" "Shorthanded" "SH2" "Shorthanded 2" "ENG" "Empty net" "GWG" "Game winning goal" "PTY" "Penalty shot"
+		"GK_OUT" "Goalkeeper out" "GK_IN" "Goalkeeper in" "P" "Penalty" "G" "\002Goal\002" "TP" "Team Penalty" "TMO" "Timeout" "BR_ST" "Broken stick"
                 "HOOK" "Hooking" "TOO_M" "Too many men on ice" "TRIP" "Tripping" "BD_CK" "Body check" "ROUGH" "Roughing" "INTRF" "Interference" "HO_ST" "Holding the stick"
-                "HOLD" "Holding" "HI_ST" "High stick" "CROSS" "Cross-checking" "DELAY" "Delaying the game" "HAND_Penalty" "Closing hand on puck" "KNEE" "Kneeing" "SLASH" "Slashing"
+                "HOLD" "Holding" "HI_ST" "High stick" "CROSS" "Cross-checking" "DELAY" "Delaying the game" "HAND_Penalty" "Closing hand on puck" "KNEE" "Kneeing" "SLASH" "Slashing" "THR_ST" "Throwing the stick"
                 }
 
 
@@ -107,11 +106,11 @@ for {set x [expr [llength $actions] -1 -$lastindexed]} {$x >= 0} {incr x -1} {
                 if {[dict exists [lindex $actions $x] athleteServingNumber]} {set playernumber "#[dict get $[lindex $actions $x] athleteServingNumber]"; set addendum $playernumber}
 		if {[dict exists [lindex $actions $x] athlete shortName]} {set player [dict get [lindex $actions $x] athlete shortName]; set addendum "$addendum $player"}
 		if {[dict exists [lindex $actions $x] athleteServing shortName]} {set player [dict get $[lindex $actions $x] athleteServing shortName]; set addendum "$addendum $player"}
-		if {$type == "P"} {
+		if {$type == "P" && $type != "PTY"} {
 			if {[dict get [lindex $actions $x] isTeamPenalty] == "true"} {set type "TP"}
 			set penalty [dict get [lindex $actions $x] penaltyDesc]
-                        set penaltymin [dict get [lindex $actions $x] penaltyPIM]
-                        set addendum "$playernumber $player ([string map $types $penalty] ${penaltymin}min)"
+                        if {[dict exists [lindex $actions $x] penaltyPIM]} {set penaltymin " [dict get [lindex $actions $x] penaltyPIM]min"} else {set penaltymin ""}
+                        set addendum "$playernumber $player ([string map $types $penalty]$penaltymin)"
 		}
 	        if {$type == "G"} {
 		set addendum ""
